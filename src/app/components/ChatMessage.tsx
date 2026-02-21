@@ -1,200 +1,86 @@
 "use client";
 
-import React, { useMemo, useState, useCallback } from "react";
-import { SubAgentIndicator } from "@/app/components/SubAgentIndicator";
-import { ToolCallBox } from "@/app/components/ToolCallBox";
-import { MarkdownContent } from "@/app/components/MarkdownContent";
-import type {
-  SubAgent,
-  ToolCall,
-  ActionRequest,
-  ReviewConfig,
-} from "@/app/types/types";
-import { Message } from "@langchain/langgraph-sdk";
-import {
-  extractSubAgentContent,
-  extractStringFromMessageContent,
-} from "@/app/utils/utils";
-import { cn } from "@/lib/utils";
+import { User, Bot } from "lucide-react";
+import { MarkdownContent } from "./MarkdownContent";
 
 interface ChatMessageProps {
-  message: Message;
-  toolCalls: ToolCall[];
-  isLoading?: boolean;
-  actionRequestsMap?: Map<string, ActionRequest>;
-  reviewConfigsMap?: Map<string, ReviewConfig>;
-  ui?: any[];
-  stream?: any;
-  onResumeInterrupt?: (value: any) => void;
-  graphId?: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  toolCalls?: Array<{
+    id: string;
+    name: string;
+    arguments: Record<string, unknown>;
+    result?: string;
+    status: "pending" | "completed" | "error";
+  }>;
+  isStreaming?: boolean;
 }
 
-export const ChatMessage = React.memo<ChatMessageProps>(
-  ({
-    message,
-    toolCalls,
-    isLoading,
-    actionRequestsMap,
-    reviewConfigsMap,
-    ui,
-    stream,
-    onResumeInterrupt,
-    graphId,
-  }) => {
-    const isUser = message.type === "human";
-    const messageContent = extractStringFromMessageContent(message);
-    const hasContent = messageContent && messageContent.trim() !== "";
-    const hasToolCalls = toolCalls.length > 0;
-    const subAgents = useMemo(() => {
-      return toolCalls
-        .filter((toolCall: ToolCall) => {
-          return (
-            toolCall.name === "task" &&
-            toolCall.args["subagent_type"] &&
-            toolCall.args["subagent_type"] !== "" &&
-            toolCall.args["subagent_type"] !== null
-          );
-        })
-        .map((toolCall: ToolCall) => {
-          const subagentType = (toolCall.args as Record<string, unknown>)[
-            "subagent_type"
-          ] as string;
-          return {
-            id: toolCall.id,
-            name: toolCall.name,
-            subAgentName: subagentType,
-            input: toolCall.args,
-            output: toolCall.result ? { result: toolCall.result } : undefined,
-            status: toolCall.status,
-          } as SubAgent;
-        });
-    }, [toolCalls]);
+export function ChatMessage({ role, content, toolCalls, isStreaming }: ChatMessageProps) {
+  const isUser = role === "user";
 
-    const [expandedSubAgents, setExpandedSubAgents] = useState<
-      Record<string, boolean>
-    >({});
-    const isSubAgentExpanded = useCallback(
-      (id: string) => expandedSubAgents[id] ?? true,
-      [expandedSubAgents]
-    );
-    const toggleSubAgent = useCallback((id: string) => {
-      setExpandedSubAgents((prev) => ({
-        ...prev,
-        [id]: prev[id] === undefined ? false : !prev[id],
-      }));
-    }, []);
+  return (
+    <div className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}>
+      {!isUser && (
+        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+          <Bot className="h-4 w-4" />
+        </div>
+      )}
 
-    return (
-      <div
-        className={cn(
-          "flex w-full max-w-full overflow-x-hidden",
-          isUser && "flex-row-reverse"
-        )}
-      >
+      <div className={`flex max-w-[70%] flex-col ${isUser ? "items-end" : "items-start"}`}>
         <div
-          className={cn(
-            "min-w-0 max-w-full",
-            isUser ? "max-w-[70%]" : "w-full"
-          )}
+          className={`rounded-lg px-4 py-2 ${
+            isUser
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted text-foreground"
+          }`}
         >
-          {hasContent && (
-            <div className={cn("relative flex items-end gap-0")}>
-              <div
-                className={cn(
-                  "mt-4 overflow-hidden break-words text-sm font-normal leading-[150%]",
-                  isUser
-                    ? "rounded-xl rounded-br-none border border-border px-3 py-2 text-foreground"
-                    : "text-primary"
-                )}
-                style={
-                  isUser
-                    ? { backgroundColor: "var(--color-user-message-bg)" }
-                    : undefined
-                }
-              >
-                {isUser ? (
-                  <p className="m-0 whitespace-pre-wrap break-words text-sm leading-relaxed">
-                    {messageContent}
-                  </p>
-                ) : hasContent ? (
-                  <MarkdownContent content={messageContent} />
-                ) : null}
-              </div>
+          {content ? (
+            <div className="prose prose-sm max-w-none dark:prose-invert">
+              {isUser ? (
+                <p className="whitespace-pre-wrap">{content}</p>
+              ) : (
+                <MarkdownContent content={content} />
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              <span className="text-sm text-muted-foreground">Thinking...</span>
             </div>
           )}
-          {hasToolCalls && (
-            <div className="mt-4 flex w-full flex-col">
-              {toolCalls.map((toolCall: ToolCall) => {
-                if (toolCall.name === "task") return null;
-                const toolCallGenUiComponent = ui?.find(
-                  (u) => u.metadata?.tool_call_id === toolCall.id
-                );
-                const actionRequest = actionRequestsMap?.get(toolCall.name);
-                const reviewConfig = reviewConfigsMap?.get(toolCall.name);
-                return (
-                  <ToolCallBox
-                    key={toolCall.id}
-                    toolCall={toolCall}
-                    uiComponent={toolCallGenUiComponent}
-                    stream={stream}
-                    graphId={graphId}
-                    actionRequest={actionRequest}
-                    reviewConfig={reviewConfig}
-                    onResume={onResumeInterrupt}
-                    isLoading={isLoading}
-                  />
-                );
-              })}
-            </div>
-          )}
-          {!isUser && subAgents.length > 0 && (
-            <div className="flex w-fit max-w-full flex-col gap-4">
-              {subAgents.map((subAgent) => (
-                <div
-                  key={subAgent.id}
-                  className="flex w-full flex-col gap-2"
-                >
-                  <div className="flex items-end gap-2">
-                    <div className="w-[calc(100%-100px)]">
-                      <SubAgentIndicator
-                        subAgent={subAgent}
-                        onClick={() => toggleSubAgent(subAgent.id)}
-                        isExpanded={isSubAgentExpanded(subAgent.id)}
-                      />
-                    </div>
-                  </div>
-                  {isSubAgentExpanded(subAgent.id) && (
-                    <div className="w-full max-w-full">
-                      <div className="bg-surface border-border-light rounded-md border p-4">
-                        <h4 className="text-primary/70 mb-2 text-xs font-semibold uppercase tracking-wider">
-                          Input
-                        </h4>
-                        <div className="mb-4">
-                          <MarkdownContent
-                            content={extractSubAgentContent(subAgent.input)}
-                          />
-                        </div>
-                        {subAgent.output && (
-                          <>
-                            <h4 className="text-primary/70 mb-2 text-xs font-semibold uppercase tracking-wider">
-                              Output
-                            </h4>
-                            <MarkdownContent
-                              content={extractSubAgentContent(subAgent.output)}
-                            />
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+
+          {isStreaming && content && (
+            <div className="mt-1 flex items-center gap-1 text-xs opacity-70">
+              <span>Streaming</span>
+              <span className="animate-pulse">...</span>
             </div>
           )}
         </div>
-      </div>
-    );
-  }
-);
 
-ChatMessage.displayName = "ChatMessage";
+        {/* Tool Calls */}
+        {toolCalls && toolCalls.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {toolCalls.map((tool) => (
+              <div
+                key={tool.id}
+                className="flex items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-2 text-xs"
+              >
+                <span className="font-medium">🔧 {tool.name}</span>
+                <span className="text-muted-foreground">
+                  ({tool.status})
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {isUser && (
+        <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-secondary">
+          <User className="h-4 w-4" />
+        </div>
+      )}
+    </div>
+  );
+}

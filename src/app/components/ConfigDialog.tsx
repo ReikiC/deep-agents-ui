@@ -12,51 +12,38 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { StandaloneConfig } from "@/lib/config";
 
 interface ConfigDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (config: StandaloneConfig) => void;
-  initialConfig?: StandaloneConfig;
 }
 
 export function ConfigDialog({
   open,
   onOpenChange,
-  onSave,
-  initialConfig,
 }: ConfigDialogProps) {
-  const [deploymentUrl, setDeploymentUrl] = useState(
-    initialConfig?.deploymentUrl || ""
-  );
-  const [assistantId, setAssistantId] = useState(
-    initialConfig?.assistantId || ""
-  );
-  const [langsmithApiKey, setLangsmithApiKey] = useState(
-    initialConfig?.langsmithApiKey || ""
-  );
+  const [apiUrl, setApiUrl] = useState("");
 
   useEffect(() => {
-    if (open && initialConfig) {
-      setDeploymentUrl(initialConfig.deploymentUrl);
-      setAssistantId(initialConfig.assistantId);
-      setLangsmithApiKey(initialConfig.langsmithApiKey || "");
+    if (open) {
+      setApiUrl(
+        localStorage.getItem("api_url") ||
+        process.env.NEXT_PUBLIC_API_URL ||
+        "http://localhost:8000"
+      );
     }
-  }, [open, initialConfig]);
+  }, [open]);
 
   const handleSave = () => {
-    if (!deploymentUrl || !assistantId) {
-      alert("Please fill in all required fields");
+    if (!apiUrl) {
+      alert("Please enter an API URL");
       return;
     }
 
-    onSave({
-      deploymentUrl,
-      assistantId,
-      langsmithApiKey: langsmithApiKey || undefined,
-    });
+    localStorage.setItem("api_url", apiUrl);
     onOpenChange(false);
+    // 刷新页面以应用新配置
+    window.location.reload();
   };
 
   return (
@@ -64,45 +51,25 @@ export function ConfigDialog({
       open={open}
       onOpenChange={onOpenChange}
     >
-      <DialogContent className="sm:max-w-[525px]">
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Configuration</DialogTitle>
+          <DialogTitle>Settings</DialogTitle>
           <DialogDescription>
-            Configure your LangGraph deployment settings. These settings are
-            saved in your browser&apos;s local storage.
+            Configure your API connection settings. These settings are saved in your browser&apos;s local storage.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="deploymentUrl">Deployment URL</Label>
+            <Label htmlFor="apiUrl">API URL</Label>
             <Input
-              id="deploymentUrl"
-              placeholder="https://<deployment-url>"
-              value={deploymentUrl}
-              onChange={(e) => setDeploymentUrl(e.target.value)}
+              id="apiUrl"
+              placeholder="http://localhost:8000"
+              value={apiUrl}
+              onChange={(e) => setApiUrl(e.target.value)}
             />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="assistantId">Assistant ID</Label>
-            <Input
-              id="assistantId"
-              placeholder="<assistant-id>"
-              value={assistantId}
-              onChange={(e) => setAssistantId(e.target.value)}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="langsmithApiKey">
-              LangSmith API Key{" "}
-              <span className="text-muted-foreground">(Optional)</span>
-            </Label>
-            <Input
-              id="langsmithApiKey"
-              type="password"
-              placeholder="lsv2_pt_..."
-              value={langsmithApiKey}
-              onChange={(e) => setLangsmithApiKey(e.target.value)}
-            />
+            <p className="text-xs text-muted-foreground">
+              The URL of your Universal Agent Backend API server
+            </p>
           </div>
         </div>
         <DialogFooter>
@@ -112,7 +79,7 @@ export function ConfigDialog({
           >
             Cancel
           </Button>
-          <Button onClick={handleSave}>Save</Button>
+          <Button onClick={handleSave}>Save & Reload</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -1,93 +1,153 @@
-# 🚀🧠 Deep Agents UI
+# Universal Agent Chat UI
 
-[Deep Agents](https://github.com/langchain-ai/deepagents) is a simple, open source agent harness that implements a few generally useful tools, including planning (prior to task execution), computer access (giving the able access to a shell and a filesystem), and sub-agent delegation (isolated task execution). This is a UI for interacting with deepagents.
+> 适配 Universal Agent Backend 的前端界面
 
-## 🚀 Quickstart
+原项目 [langchain-ai/deep-agents-ui](https://github.com/langchain-ai/deep-agents-ui) 已改造为适配 [Universal Agent Backend](https://github.com/ReikiC/Universal-Agent-Backend)。
 
-**Install dependencies and run the app**
+## ✨ 特性
+
+- 🔐 **用户认证** - 支持注册、登录、JWT 认证
+- 💬 **流式聊天** - 实时 SSE 流式响应
+- 📝 **会话管理** - 持久化的多轮对话会话
+- 🛠️ **工具调用** - 支持 MCP 工具集成
+- ⏸️ **任务控制** - 取消和继续正在运行的任务
+
+## 🚀 快速开始
+
+### 1. 安装依赖
 
 ```bash
-git clone https://github.com/langchain-ai/deep-agents-ui.git
-cd deep-agents-ui
 yarn install
+```
+
+### 2. 配置环境变量
+
+```bash
+cp .env.example .env.local
+```
+
+编辑 `.env.local`：
+
+```bash
+# Universal Agent Backend API URL
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+### 3. 启动后端服务
+
+确保 [Universal Agent Backend](https://github.com/ReikiC/Universal-Agent-Backend) 正在运行：
+
+```bash
+cd /path/to/Universal-Agent-Backend
+uv run python -m uvicorn app.main:app --reload
+```
+
+### 4. 启动前端服务
+
+```bash
 yarn dev
 ```
 
-**Deploy a Deep Agent**
+访问 [http://localhost:3000](http://localhost:3000)
 
-As an example, see our [Deep Agents quickstarts](https://github.com/langchain-ai/deepagents/tree/main/examples) for examples and run the `deep_research` example.
+### 5. 注册和登录
 
-The `langgraph.json` file has the assistant ID as the key:
+首次使用需要注册账户：
 
-```
-  "graphs": {
-    "research": "./agent.py:agent"
-  },
-```
+1. 访问登录页面
+2. 点击 "Don't have an account? Sign up"
+3. 填写邮箱、密码和姓名
+4. 注册后自动登录
 
-Kick off the local LangGraph deployment:
-
-```bash
-cd deepagents-quickstarts/deep_research
-langgraph dev
-```
-
-You will see the local LangGraph deployment log to terminal:
+## 📁 项目结构
 
 ```
-╦  ┌─┐┌┐┌┌─┐╔═╗┬─┐┌─┐┌─┐┬ ┬
-║  ├─┤││││ ┬║ ╦├┬┘├─┤├─┘├─┤
-╩═╝┴ ┴┘└┘└─┘╚═╝┴└─┴ ┴┴  ┴ ┴
-
-- 🚀 API: http://127.0.0.1:2024
-- 🎨 Studio UI: https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:2024
-- 📚 API Docs: http://127.0.0.1:2024/docs
-...
+src/
+├── api/                    # API 客户端层
+│   ├── client.ts          # 基础 API 客户端（fetch 封装）
+│   ├── auth.ts            # 认证 API
+│   ├── sessions.ts        # 会话管理 API
+│   ├── chat.ts            # 聊天和 SSE 处理
+│   └── index.ts
+├── hooks/                  # 自定义 Hooks
+│   ├── useAuth.ts         # 认证状态管理
+│   ├── useSessions.ts     # 会话列表（替换 useThreads）
+│   └── useChat.new.ts     # 聊天逻辑
+├── providers/              # Context Providers
+│   ├── AuthProvider.tsx   # 认证上下文
+│   └── ApiProvider.tsx    # API 客户端上下文
+├── types/                  # TypeScript 类型定义
+│   ├── auth.ts            # 认证类型
+│   ├── api.ts             # API 类型
+│   └── index.ts
+└── app/                    # Next.js App Router
+    ├── login/             # 登录页面
+    ├── components/        # React 组件
+    └── page.tsx           # 主页
 ```
 
-You can get the Deployment URL and Assistant ID from the terminal output and `langgraph.json` file, respectively:
+## 🔧 开发
 
-- Deployment URL: <http://127.0.1:2024>
-- Assistant ID: `research`
+### 可用脚本
 
-**Open Deep Agents UI** at [http://localhost:3000](http://localhost:3000) and input the Deployment URL and Assistant ID:
+| 命令 | 说明 |
+|------|------|
+| `yarn dev` | 启动开发服务器 |
+| `yarn build` | 构建生产版本 |
+| `yarn start` | 启动生产服务器 |
+| `yarn lint` | 运行 ESLint |
+| `yarn format` | 格式化代码 |
 
-- **Deployment URL**: The URL for the LangGraph deployment you are connecting to
-- **Assistant ID**: The ID of the assistant or agent you want to use
-- [Optional] **LangSmith API Key**: Your LangSmith API key (format: `lsv2_pt_...`). This may be required for accessing deployed LangGraph applications. You can also provide this via the `NEXT_PUBLIC_LANGSMITH_API_KEY` environment variable.
+### API 端点
 
-**Usage**
+| 端点 | 说明 | 认证 |
+|------|------|:----:|
+| `POST /api/v1/auth/register` | 用户注册 | ❌ |
+| `POST /api/v1/auth/login` | 用户登录 | ❌ |
+| `GET /api/v1/sessions` | 列出会话 | ✅ |
+| `POST /api/v1/sessions` | 创建会话 | ✅ |
+| `POST /api/v1/chat/.../stream/v2` | 流式聊天 | ✅ |
+| `DELETE /api/v1/task/{id}` | 取消任务 | ✅ |
 
-You can interact with the deployment via the chat interface and can edit settings at any time by clicking on the Settings button in the header.
+详细 API 文档：[Universal Agent Backend README](https://github.com/ReikiC/Universal-Agent-Backend#api-概览)
 
-<img width="2039" height="1495" alt="Screenshot 2025-11-17 at 1 11 27 PM" src="https://github.com/user-attachments/assets/50e1b5f3-a626-4461-9ad9-90347e471e8c" />
+## 🔄 从原项目迁移
 
-As the deepagent runs, you can see its files in LangGraph state.
+如果你正在从原版 deep-agents-ui 迁移，请查看 [迁移指南](./MIGRATION_GUIDE.md)。
 
-<img width="2039" height="1495" alt="Screenshot 2025-11-17 at 1 11 36 PM" src="https://github.com/user-attachments/assets/86cc6228-5414-4cf0-90f5-d206d30c005e" />
+主要变更：
 
-You can click on any file to view it.
+- ❌ 移除 `@langchain/langgraph-sdk` 依赖
+- ✅ 添加 JWT 认证系统
+- ✅ 重写 API 客户端层（REST + SSE）
+- ✅ 添加登录/注册页面
+- ⚠️ 简化配置（只需要 API URL）
+- ⚠️ 移除 Debug 模式和 LangSmith 追踪
 
-<img width="2039" height="1495" alt="Screenshot 2025-11-17 at 1 11 40 PM" src="https://github.com/user-attachments/assets/9883677f-e365-428d-b941-992bdbfa79dd" />
+## ⚠️ 功能差异
 
-### Optional: Environment Variables
+与原版 deep-agents-ui 相比，以下功能不再支持：
 
-You can optionally set environment variables instead of using the settings dialog:
+- ❌ LangSmith 追踪集成
+- ❌ Debug 模式（单步执行）
+- ⚠️ 子代理嵌套展示（简化为线性展示）
 
-```env
-NEXT_PUBLIC_LANGSMITH_API_KEY="lsv2_xxxx"
-```
+新增功能：
 
-**Note:** Settings configured in the UI take precedence over environment variables.
+- ✅ 用户认证和授权
+- ✅ 数据库持久化的会话管理
+- ✅ 任务取消和继续
 
-### Usage
+## 📚 相关文档
 
-You can run your Deep Agents in Debug Mode, which will execute the agent step by step. This will allow you to re-run the specific steps of the agent. This is intended to be used alongside the optimizer.
+- [适配方案详细文档](./ADAPTATION_PLAN.md)
+- [迁移指南](./MIGRATION_GUIDE.md)
+- [Universal Agent Backend](https://github.com/ReikiC/Universal-Agent-Backend)
 
-You can also turn off Debug Mode to run the full agent end-to-end.
+## 📄 许可证
 
-### 📚 Resources
+Apache License 2.0
 
-If the term "Deep Agents" is new to you, check out these videos!
-[What are Deep Agents?](https://www.youtube.com/watch?v=433SmtTc0TA)
-[Implementing Deep Agents](https://www.youtube.com/watch?v=TTMYJAw5tiA&t=701s)
+## 🙏 致谢
+
+本项目基于 [langchain-ai/deep-agents-ui](https://github.com/langchain-ai/deep-agents-ui) 改造而来。
